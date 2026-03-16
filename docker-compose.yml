@@ -1,23 +1,6 @@
 services:
-  db:
-    container_name: whisper-db
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_USER: whisper
-      POSTGRES_PASSWORD: whisper
-      POSTGRES_DB: whisper
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U whisper -d whisper"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-  whisper-server:
-    container_name: whisper-server
+  stt:
+    container_name: t4lk-server
     build: .
     restart: unless-stopped
     deploy:
@@ -27,18 +10,12 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
-    environment:
-      - DATABASE_URL=postgresql+asyncpg://whisper:whisper@db:5432/whisper
-      - ADMIN_TOKEN=${ADMIN_TOKEN}
-      - WHISPER_MODEL=${WHISPER_MODEL}
+    env_file: .env
     ports:
       - "8000:8000"
     volumes:
-      - ./server.py:/app/server.py
+      - ./stt:/app/stt
       - model-cache:/app/.cache
-    depends_on:
-      db:
-        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -47,5 +24,4 @@ services:
       retries: 3
 
 volumes:
-  pgdata:
   model-cache:

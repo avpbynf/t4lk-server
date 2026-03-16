@@ -1,0 +1,1 @@
+"""Transcriptions domain."""

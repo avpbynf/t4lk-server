@@ -1,8 +1,8 @@
 # syntax=docker/dockerfile:1
 
-FROM nvidia/cuda:12.1.0-devel-ubuntu22.04
+FROM nvidia/cuda:12.1.0-runtime-ubuntu22.04
 
-# Prevent interactive prompts during package installation
+# Prevent interactive prompts
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install Python 3.11 and dependencies
@@ -14,38 +14,28 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Make python3.11 the default python
+# Make python3.11 the default
 RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1 \
     && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
 
-# Install uv package manager
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh
-ENV PATH="/root/.local/bin:$PATH"
+# Install uv (pinned version)
+COPY --from=ghcr.io/astral-sh/uv:0.6 /uv /usr/local/bin/uv
 
-# Set working directory
 WORKDIR /app
 
-# Copy project files
+# Copy project files and install dependencies
 COPY pyproject.toml uv.lock ./
-
-# Install dependencies with uv
 RUN uv sync --frozen --no-dev
 
-# Copy application code
-COPY server.py ./
-COPY db/ ./db/
-COPY admin/ ./admin/
-COPY auth/ ./auth/
+# Copy application code (stt/ package only, no more auth/admin/db)
+COPY stt/ ./stt/
 
-# Set cache directory for Hugging Face models
+# HuggingFace cache directory
 ENV HF_HOME=/app/.cache/huggingface
 
-# Expose the API port
 EXPOSE 8000
 
-# Healthcheck
 HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-# Run the server
-CMD ["uv", "run", "uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uv", "run", "uvicorn", "stt.main:app", "--host", "0.0.0.0", "--port", "8000"]
