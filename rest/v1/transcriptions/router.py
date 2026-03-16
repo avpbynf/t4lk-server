@@ -7,7 +7,8 @@ from fastapi.responses import PlainTextResponse, StreamingResponse
 
 from rest.engine import TranscriptionResult, WhisperEngine
 from rest.exceptions import InvalidAudioError
-from rest.models import (
+from rest.settings import get_settings
+from rest.v1.transcriptions.models import (
     ALLOWED_EXTENSIONS,
     ALLOWED_RESPONSE_FORMATS,
     MAX_UPLOAD_SIZE,
@@ -18,7 +19,6 @@ from rest.models import (
     TranscriptionResponse,
     VerboseTranscriptionResponse,
 )
-from rest.settings import get_settings
 
 logger = logging.getLogger(__name__)
 

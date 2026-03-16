@@ -3,12 +3,11 @@
 import pytest
 from pydantic import ValidationError
 
-from rest.models import (
+from rest.models import ApiErrorModel, ErrorResponse, HealthResponse
+from rest.v1.transcriptions.models import (
     ALLOWED_EXTENSIONS,
     ALLOWED_RESPONSE_FORMATS,
     MAX_UPLOAD_SIZE,
-    ErrorResponse,
-    HealthResponse,
     SegmentInfo,
     StreamDoneEvent,
     StreamErrorEvent,
@@ -221,3 +220,32 @@ def test_error_response_is_frozen():
 
     with pytest.raises((TypeError, ValidationError)):
         err.detail = "mutated"  # type: ignore[misc]
+
+
+# ---------------------------------------------------------------------------
+# ApiErrorModel
+# ---------------------------------------------------------------------------
+
+
+def test_api_error_model():
+    """ApiErrorModel captures error details with optional trace ID."""
+    error = ApiErrorModel(
+        status=400,
+        message="Bad request",
+        type="InvalidAudioError",
+        trace_id="abc123",
+    )
+    assert error.status == 400
+    assert error.message == "Bad request"
+    assert error.type == "InvalidAudioError"
+    assert error.trace_id == "abc123"
+
+
+def test_api_error_model_no_trace_id():
+    """ApiErrorModel works without trace_id."""
+    error = ApiErrorModel(
+        status=500,
+        message="Internal server error",
+        type="Exception",
+    )
+    assert error.trace_id is None

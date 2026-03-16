@@ -178,7 +178,10 @@ async def test_queue_timeout_error_returns_503():
 
     # Assert
     assert response.status_code == 503
-    assert "timeout" in response.json()["detail"]
+    body = response.json()
+    assert body["status"] == 503
+    assert "timeout" in body["message"]
+    assert body["type"] == "QueueTimeoutError"
 
 
 async def test_invalid_audio_error_returns_400():
@@ -186,7 +189,10 @@ async def test_invalid_audio_error_returns_400():
         response = await client.get("/error")
 
     assert response.status_code == 400
-    assert "bad file" in response.json()["detail"]
+    body = response.json()
+    assert body["status"] == 400
+    assert "bad file" in body["message"]
+    assert body["type"] == "InvalidAudioError"
 
 
 async def test_transcription_error_returns_500():
@@ -194,7 +200,10 @@ async def test_transcription_error_returns_500():
         response = await client.get("/error")
 
     assert response.status_code == 500
-    assert "model failed" in response.json()["detail"]
+    body = response.json()
+    assert body["status"] == 500
+    assert "model failed" in body["message"]
+    assert body["type"] == "TranscriptionError"
 
 
 async def test_generic_exception_returns_500():
@@ -202,11 +211,56 @@ async def test_generic_exception_returns_500():
         response = await client.get("/error")
 
     assert response.status_code == 500
-    assert response.json()["detail"] == "Internal server error"
+    body = response.json()
+    assert body["status"] == 500
+    assert body["message"] == "Internal server error"
+    assert body["type"] == "RuntimeError"
 
 
-async def test_exception_response_has_detail_key():
+async def test_exception_response_has_api_error_model_shape():
     async with await _make_raising_app(InvalidAudioError("bad")) as client:
         response = await client.get("/error")
 
-    assert "detail" in response.json()
+    body = response.json()
+    assert "status" in body
+    assert "message" in body
+    assert "type" in body
+    assert "trace_id" in body
+
+
+async def test_http_exception_preserves_status_code():
+    """HTTPException handler preserves the original status code."""
+    from starlette.exceptions import HTTPException as StarletteHTTPException
+
+    async with await _make_raising_app(
+        StarletteHTTPException(status_code=404, detail="Not found")
+    ) as client:
+        response = await client.get("/error")
+
+    assert response.status_code == 404
+    body = response.json()
+    assert body["status"] == 404
+    assert body["message"] == "Not found"
+    assert body["type"] == "HTTPException"
+
+
+async def test_validation_error_returns_422():
+    """RequestValidationError is caught and returns 422 with humanised message."""
+    app = FastAPI()
+    add_exception_middleware(app)
+
+    @app.get("/validate")
+    async def validate(count: int):
+        return {"count": count}
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app, raise_app_exceptions=False),
+        base_url="http://test",
+    ) as client:
+        response = await client.get("/validate?count=abc")
+
+    assert response.status_code == 422
+    body = response.json()
+    assert body["status"] == 422
+    assert body["type"] == "RequestValidationError"
+    assert "message" in body

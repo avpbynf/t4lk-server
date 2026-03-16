@@ -190,7 +190,7 @@ async def test_transcription_invalid_extension_returns_400(client):
     )
 
     assert response.status_code == 400
-    assert "detail" in response.json()
+    assert "message" in response.json()
 
 
 async def test_transcription_oversized_file_returns_400(client):
@@ -202,7 +202,7 @@ async def test_transcription_oversized_file_returns_400(client):
     )
 
     assert response.status_code == 400
-    assert "detail" in response.json()
+    assert "message" in response.json()
 
 
 async def test_transcription_invalid_response_format_returns_400(client):

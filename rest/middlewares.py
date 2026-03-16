@@ -1,13 +1,14 @@
 """Middleware stack for the STT server."""
 
 import logging
-import secrets
 import time
 from collections.abc import Callable
 from typing import cast
 
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
@@ -18,6 +19,8 @@ from rest.exceptions import (
     STTError,
     TranscriptionError,
 )
+from rest.models import ApiErrorModel
+from rest.utils import generate_otel_trace_id
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +66,7 @@ class TraceMiddleware(BaseHTTPMiddleware):
         Returns:
             Response with X-Request-Id header set.
         """
-        trace_id = secrets.token_hex(16)
+        trace_id = generate_otel_trace_id()
         request.state.trace_id = trace_id
         response = cast(Response, await call_next(request))
         response.headers["X-Request-Id"] = trace_id
@@ -134,23 +137,86 @@ class AccessLogMiddleware(BaseHTTPMiddleware):
 
 
 def add_exception_middleware(app: FastAPI) -> None:
-    """Register a catch-all exception handler that returns JSON error responses.
+    """Register exception handlers that return uniform ApiErrorModel responses.
 
-    This handler is the innermost layer of the middleware stack.  It maps
-    known STTError subclasses to appropriate HTTP status codes and converts
-    all other unhandled exceptions to a generic 500 response so that no
-    internal details leak to the client.
-
-    Mapping:
-        - QueueTimeoutError  -> 503 Service Unavailable
-        - InvalidAudioError  -> 400 Bad Request
-        - TranscriptionError -> 500 Internal Server Error
-        - Other STTError     -> 500 Internal Server Error
-        - Any other error    -> 500 Internal Server Error
+    Registers three handlers (order matters for FastAPI resolution):
+    1. RequestValidationError -> 422 with humanised field errors
+    2. HTTPException -> preserves the original status code
+    3. Exception (catch-all) -> maps STTError subclasses to codes, else 500
 
     Args:
-        app: The FastAPI application instance to register the handler on.
+        app: The FastAPI application instance to register the handlers on.
     """
+
+    def _build_error(
+        status_code: int,
+        message: str,
+        error_type: str,
+        trace_id: str | None,
+    ) -> JSONResponse:
+        body = ApiErrorModel(
+            status=status_code,
+            message=message,
+            type=error_type,
+            trace_id=trace_id,
+        )
+        return JSONResponse(
+            status_code=status_code,
+            content=body.model_dump(),
+            headers={"X-Request-Id": trace_id} if trace_id else {},
+        )
+
+    @app.exception_handler(RequestValidationError)
+    async def _handle_validation_error(
+        request: Request, exc: RequestValidationError
+    ) -> JSONResponse:
+        """Return a 422 response with humanised validation errors.
+
+        Args:
+            request: The request that triggered the validation error.
+            exc: The validation exception raised by Pydantic/FastAPI.
+
+        Returns:
+            JSONResponse with 422 status and ApiErrorModel body.
+        """
+        from rest.utils import humanize_validation_error
+
+        trace_id = getattr(request.state, "trace_id", None)
+        message = humanize_validation_error(exc.errors())
+        logger.warning(
+            "Validation error 422 for %s %s [trace_id=%s]: %s",
+            request.method,
+            request.url.path,
+            trace_id,
+            message,
+        )
+        return _build_error(422, message, "RequestValidationError", trace_id)
+
+    @app.exception_handler(StarletteHTTPException)
+    async def _handle_http_exception(
+        request: Request, exc: StarletteHTTPException
+    ) -> JSONResponse:
+        """Return an ApiErrorModel response for explicit HTTP exceptions.
+
+        Args:
+            request: The request that triggered the exception.
+            exc: The HTTP exception with status_code and detail.
+
+        Returns:
+            JSONResponse preserving the original status code.
+        """
+        trace_id = getattr(request.state, "trace_id", None)
+        detail = exc.detail if isinstance(exc.detail, str) else str(exc.detail)
+        if exc.status_code >= 500:
+            logger.error(
+                "HTTP %d for %s %s [trace_id=%s]: %s",
+                exc.status_code,
+                request.method,
+                request.url.path,
+                trace_id,
+                detail,
+            )
+        return _build_error(exc.status_code, detail, "HTTPException", trace_id)
 
     @app.exception_handler(Exception)
     async def _handle_exception(request: Request, exc: Exception) -> JSONResponse:
@@ -161,7 +227,7 @@ def add_exception_middleware(app: FastAPI) -> None:
             exc: The unhandled exception.
 
         Returns:
-            JSONResponse with an appropriate status code and detail message.
+            JSONResponse with an appropriate status code and ApiErrorModel body.
         """
         trace_id = getattr(request.state, "trace_id", None)
 
@@ -196,8 +262,4 @@ def add_exception_middleware(app: FastAPI) -> None:
                 detail,
             )
 
-        return JSONResponse(
-            status_code=status_code,
-            content={"detail": detail},
-            headers={"X-Request-Id": trace_id} if trace_id else {},
-        )
+        return _build_error(status_code, detail, type(exc).__name__, trace_id)
