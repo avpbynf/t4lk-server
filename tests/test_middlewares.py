@@ -1,12 +1,12 @@
-"""Tests for stt.middlewares — execution time, trace, access log, exception handler."""
+"""Tests for rest.middlewares — execution time, trace, access log, exception handler."""
 
 import logging
 
 import httpx
 from fastapi import FastAPI
 
-from stt.exceptions import InvalidAudioError, QueueTimeoutError, TranscriptionError
-from stt.middlewares import (
+from rest.exceptions import InvalidAudioError, QueueTimeoutError, TranscriptionError
+from rest.middlewares import (
     AccessLogMiddleware,
     ExecutionTimeMiddleware,
     TraceMiddleware,
@@ -120,7 +120,7 @@ async def test_trace_middleware_unique_per_request():
 async def test_access_log_contains_method_and_path(caplog):
     app = _make_app_with_access_log()
 
-    with caplog.at_level(logging.INFO, logger="stt.middlewares"):
+    with caplog.at_level(logging.INFO, logger="rest.middlewares"):
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app), base_url="http://test"
         ) as client:
@@ -136,7 +136,7 @@ async def test_access_log_contains_method_and_path(caplog):
 async def test_access_log_contains_status_code(caplog):
     app = _make_app_with_access_log()
 
-    with caplog.at_level(logging.INFO, logger="stt.middlewares"):
+    with caplog.at_level(logging.INFO, logger="rest.middlewares"):
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app), base_url="http://test"
         ) as client:

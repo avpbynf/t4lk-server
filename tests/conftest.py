@@ -30,7 +30,7 @@ def mock_whisper_model():
 @pytest.fixture
 def settings():
     """Settings with DEVICE='cpu' for testing (no GPU required)."""
-    from stt.settings import Settings
+    from rest.settings import Settings
 
     return Settings(DEVICE="cpu", GPU_TIMEOUT=5, GPU_CONCURRENCY=1)
 
@@ -38,7 +38,7 @@ def settings():
 @pytest.fixture
 def engine(settings, mock_whisper_model):
     """WhisperEngine initialized with test settings and pre-loaded mock model."""
-    from stt.engine import WhisperEngine
+    from rest.engine import WhisperEngine
 
     eng = WhisperEngine(settings)
     eng._model = mock_whisper_model
@@ -48,8 +48,8 @@ def engine(settings, mock_whisper_model):
 @pytest.fixture
 async def client(engine):
     """httpx.AsyncClient with the FastAPI app mounted and mock engine injected."""
-    with patch("stt.engine.WhisperModel"):
-        from stt.main import create_app
+    with patch("rest.engine.WhisperModel"):
+        from rest.main import create_app
 
         app = create_app()
         # Bypass the real lifespan (which would try to load the GPU model)

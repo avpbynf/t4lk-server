@@ -6,16 +6,16 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-from stt.engine import WhisperEngine
-from stt.middlewares import (
+from rest.engine import WhisperEngine
+from rest.middlewares import (
     AccessLogMiddleware,
     ExecutionTimeMiddleware,
     TraceMiddleware,
     add_exception_middleware,
 )
-from stt.models import HealthResponse
-from stt.routes import router
-from stt.settings import get_settings
+from rest.models import HealthResponse
+from rest.routes import router
+from rest.settings import get_settings
 
 
 @asynccontextmanager
@@ -116,4 +116,4 @@ if __name__ == "__main__":
     import uvicorn
 
     settings = get_settings()
-    uvicorn.run("stt.main:app", host=settings.HOST, port=settings.PORT, reload=True)
+    uvicorn.run("rest.main:app", host=settings.HOST, port=settings.PORT, reload=True)

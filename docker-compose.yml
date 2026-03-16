@@ -14,7 +14,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./stt:/app/stt
+      - ./rest:/app/rest
       - model-cache:/app/.cache
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]

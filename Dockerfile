@@ -27,8 +27,8 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev
 
-# Copy application code (stt/ package only, no more auth/admin/db)
-COPY stt/ ./stt/
+# Copy application code (rest/ package only, no more auth/admin/db)
+COPY rest/ ./rest/
 
 # HuggingFace cache directory
 ENV HF_HOME=/app/.cache/huggingface
@@ -38,4 +38,4 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-CMD ["uv", "run", "uvicorn", "stt.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uv", "run", "uvicorn", "rest.main:app", "--host", "0.0.0.0", "--port", "8000"]

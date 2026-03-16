@@ -8,8 +8,8 @@ from dataclasses import dataclass, field
 
 from faster_whisper import WhisperModel
 
-from stt.exceptions import QueueTimeoutError, TranscriptionError
-from stt.settings import Settings
+from rest.exceptions import QueueTimeoutError, TranscriptionError
+from rest.settings import Settings
 
 logger = logging.getLogger(__name__)
 

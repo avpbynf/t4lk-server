@@ -1,13 +1,13 @@
-"""Tests for stt.engine — WhisperEngine transcription and streaming."""
+"""Tests for rest.engine — WhisperEngine transcription and streaming."""
 
 import asyncio
 from unittest.mock import MagicMock
 
 import pytest
 
-from stt.engine import SegmentResult, TranscriptionResult, WhisperEngine
-from stt.exceptions import QueueTimeoutError, TranscriptionError
-from stt.settings import Settings
+from rest.engine import SegmentResult, TranscriptionResult, WhisperEngine
+from rest.exceptions import QueueTimeoutError, TranscriptionError
+from rest.settings import Settings
 
 # ---------------------------------------------------------------------------
 # Helpers

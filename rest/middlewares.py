@@ -12,7 +12,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
 
-from stt.exceptions import (
+from rest.exceptions import (
     InvalidAudioError,
     QueueTimeoutError,
     STTError,

@@ -1,9 +1,9 @@
-"""Tests for stt.models — Pydantic models, constants and serialization."""
+"""Tests for rest.models — Pydantic models, constants and serialization."""
 
 import pytest
 from pydantic import ValidationError
 
-from stt.models import (
+from rest.models import (
     ALLOWED_EXTENSIONS,
     ALLOWED_RESPONSE_FORMATS,
     MAX_UPLOAD_SIZE,

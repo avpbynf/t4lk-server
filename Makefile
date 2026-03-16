@@ -9,10 +9,10 @@ sync: ## Install/sync dependencies via uv
 	uv sync
 
 dev: ## Start server locally (uvicorn with reload)
-	uv run uvicorn stt.main:app --host 0.0.0.0 --port 8000 --reload
+	uv run uvicorn rest.main:app --host 0.0.0.0 --port 8000 --reload
 
 test: ## Run tests with coverage (80% minimum)
-	uv run pytest --cov=stt --cov-report=term-missing --cov-fail-under=80
+	uv run pytest --cov=rest --cov-report=term-missing --cov-fail-under=80
 
 # === Code quality ===
 
@@ -23,7 +23,7 @@ format: ## Format and check with ruff
 	uv run ruff check --fix .
 
 mypy: ## Type check with mypy
-	uv run mypy stt/
+	uv run mypy rest/
 
 # === Docker ===
 

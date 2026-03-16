@@ -5,9 +5,9 @@ import logging
 from fastapi import APIRouter, File, Form, Request, UploadFile
 from fastapi.responses import PlainTextResponse, StreamingResponse
 
-from stt.engine import TranscriptionResult, WhisperEngine
-from stt.exceptions import InvalidAudioError
-from stt.models import (
+from rest.engine import TranscriptionResult, WhisperEngine
+from rest.exceptions import InvalidAudioError
+from rest.models import (
     ALLOWED_EXTENSIONS,
     ALLOWED_RESPONSE_FORMATS,
     MAX_UPLOAD_SIZE,
@@ -18,7 +18,7 @@ from stt.models import (
     TranscriptionResponse,
     VerboseTranscriptionResponse,
 )
-from stt.settings import get_settings
+from rest.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -266,7 +266,7 @@ async def create_transcription_stream(
     async def _event_generator():
         """Yield SSE-formatted events for each segment and final done event."""
         try:
-            from stt.engine import SegmentResult, TranscriptionResult
+            from rest.engine import SegmentResult, TranscriptionResult
 
             async for item in engine.transcribe_stream(
                 audio_data=content,
