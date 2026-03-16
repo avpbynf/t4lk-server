@@ -83,6 +83,7 @@ def create_app() -> FastAPI:
             allow_origins=settings.CORS_ALLOW_ORIGINS,
             allow_methods=["*"],
             allow_headers=["*"],
+            expose_headers=["x-execution-time", "x-request-id"],
         )
 
     # Routes
