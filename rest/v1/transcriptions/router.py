@@ -171,6 +171,7 @@ async def create_transcription(
         language=resolved_language,
         prompt=prompt,
     )
+    del content
 
     request.state.audio_duration_ms = int(result.duration * 1000)
     request.state.model = model or settings.WHISPER_MODEL
@@ -265,14 +266,21 @@ async def create_transcription_stream(
 
     async def _event_generator():
         """Yield SSE-formatted events for each segment and final done event."""
+        nonlocal content
         try:
             from rest.engine import SegmentResult, TranscriptionResult
 
-            async for item in engine.transcribe_stream(
+            stream = engine.transcribe_stream(
                 audio_data=content,
                 language=resolved_language,
                 prompt=prompt,
-            ):
+            )
+            content = None
+
+            async for item in stream:
+                if await request.is_disconnected():
+                    logger.info("Client disconnected, stopping SSE stream")
+                    return
                 if isinstance(item, SegmentResult):
                     event = StreamSegmentEvent(
                         index=item.index,

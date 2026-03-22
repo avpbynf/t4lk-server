@@ -103,8 +103,15 @@ class WhisperEngine:
 
     def unload(self) -> None:
         """Unload the model. Called during app shutdown."""
-        self._model = None
-        logger.info("Whisper model unloaded")
+        if self._model is not None:
+            del self._model
+            self._model = None
+            import gc
+
+            gc.collect()
+            logger.info("Whisper model unloaded and garbage collected")
+        else:
+            logger.info("No model to unload")
 
     @property
     def is_loaded(self) -> bool:
@@ -193,23 +200,23 @@ class WhisperEngine:
         if self._model is None:
             raise TranscriptionError("Whisper model is not loaded")
 
-        audio_stream = io.BytesIO(audio_data)
         try:
-            segments_iter, info = self._model.transcribe(
-                audio_stream,
-                language=language,
-                initial_prompt=prompt,
-                vad_filter=True,
-            )
-            segments = [
-                SegmentResult(
-                    index=i,
-                    start=seg.start,
-                    end=seg.end,
-                    text=seg.text,
+            with io.BytesIO(audio_data) as audio_stream:
+                segments_iter, info = self._model.transcribe(
+                    audio_stream,
+                    language=language,
+                    initial_prompt=prompt,
+                    vad_filter=True,
                 )
-                for i, seg in enumerate(segments_iter)
-            ]
+                segments = [
+                    SegmentResult(
+                        index=i,
+                        start=seg.start,
+                        end=seg.end,
+                        text=seg.text,
+                    )
+                    for i, seg in enumerate(segments_iter)
+                ]
         except Exception as exc:
             raise TranscriptionError(f"Model transcription failed: {exc}") from exc
 
