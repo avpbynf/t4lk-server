@@ -20,9 +20,6 @@ class Settings(BaseSettings):
     CORS_ALLOW_ORIGINS: list[str] = ["*"]
     LOG_LEVEL: str = "INFO"
     DEFAULT_LANGUAGE: str = "fr"
-    WS_MAX_CONNECTIONS: int = 100
-    WS_MAX_AUDIO_DURATION: int = 600
-    WS_CHUNK_TIMEOUT: int = 30
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
