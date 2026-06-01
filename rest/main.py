@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
+from rest.admin import router as admin_router
 from rest.auth.dependencies import record_usage, verify_token
 from rest.db.database import close_db, init_db
 from rest.engine import WhisperEngine
@@ -102,6 +103,9 @@ def create_app() -> FastAPI:
     app.include_router(
         router, dependencies=[Depends(verify_token), Depends(record_usage)]
     )
+
+    # Admin token management (protected by its own ADMIN_TOKEN)
+    app.include_router(admin_router)
 
     # Health endpoint (outside /v1)
     @app.get("/health", response_model=HealthResponse)
