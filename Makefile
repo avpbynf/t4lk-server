@@ -1,4 +1,4 @@
-.PHONY: help sync dev test lint format mypy up down logs restart build clean token gpu health
+.PHONY: help sync dev test lint format mypy up down logs restart build clean token gpu health token-create
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-15s\033[0m %s\n", $$1, $$2}'
@@ -55,3 +55,6 @@ gpu: ## Check GPU status in container
 
 health: ## Check server health
 	@curl -s http://localhost:8000/health | python -m json.tool
+
+token-create: ## Mint an API token in the DB: make token-create NAME=laptop
+	docker compose exec stt uv run python -m rest.create_token "$(NAME)"
