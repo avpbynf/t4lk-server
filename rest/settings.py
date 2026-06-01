@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     CORS_ALLOW_ORIGINS: list[str] = ["*"]
     LOG_LEVEL: str = "INFO"
     DEFAULT_LANGUAGE: str = "fr"
+    DATABASE_URL: str = "sqlite+aiosqlite:///./data/tokens.db"
+    ADMIN_TOKEN: str = ""
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
