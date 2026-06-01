@@ -83,7 +83,6 @@ def app_factory(engine, db_session_maker, monkeypatch):
             get_settings.cache_clear()
             app = create_app()
             app.state.engine = engine
-            app.state.db_sessionmaker = db_session_maker
 
             async def _override_get_db():
                 async with db_session_maker() as session:

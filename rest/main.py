@@ -6,8 +6,8 @@ from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-from rest.auth.dependencies import verify_token
-from rest.db.database import async_session_maker, close_db, init_db
+from rest.auth.dependencies import record_usage, verify_token
+from rest.db.database import close_db, init_db
 from rest.engine import WhisperEngine
 from rest.middlewares import (
     AccessLogMiddleware,
@@ -22,7 +22,7 @@ from rest.settings import get_settings
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan: load model on startup, unload on shutdown.
+    """Application lifespan: init DB and load model on startup; clean up on shutdown.
 
     Args:
         app: The FastAPI application instance.
@@ -46,7 +46,6 @@ async def lifespan(app: FastAPI):
         )
 
     await init_db()
-    app.state.db_sessionmaker = async_session_maker
 
     engine = WhisperEngine(settings)
     await engine.load()
@@ -100,7 +99,9 @@ def create_app() -> FastAPI:
         )
 
     # Routes — all /v1 endpoints require a valid Bearer token
-    app.include_router(router, dependencies=[Depends(verify_token)])
+    app.include_router(
+        router, dependencies=[Depends(verify_token), Depends(record_usage)]
+    )
 
     # Health endpoint (outside /v1)
     @app.get("/health", response_model=HealthResponse)
