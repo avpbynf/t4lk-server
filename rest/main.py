@@ -16,7 +16,6 @@ from rest.middlewares import (
 from rest.models import HealthResponse
 from rest.routes import router
 from rest.settings import get_settings
-from rest.v1.transcriptions.ws_router import ws_router
 
 
 @asynccontextmanager
@@ -89,7 +88,6 @@ def create_app() -> FastAPI:
 
     # Routes
     app.include_router(router)
-    app.include_router(ws_router)
 
     # Health endpoint (outside /v1)
     @app.get("/health", response_model=HealthResponse)
