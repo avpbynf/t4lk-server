@@ -8,3 +8,6 @@ __pycache__/
 .ruff_cache/
 htmlcov/
 .coverage
+
+# Local token database (dev)
+/data/
