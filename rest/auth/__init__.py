@@ -1,5 +1,6 @@
 """Token-based authentication."""
 
+from rest.auth.dependencies import CurrentToken, verify_token
 from rest.auth.tokens import (
     create_token,
     generate_token,
@@ -14,6 +15,8 @@ from rest.auth.tokens import (
 )
 
 __all__ = [
+    "verify_token",
+    "CurrentToken",
     "create_token",
     "generate_token",
     "get_token_by_id",

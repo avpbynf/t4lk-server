@@ -3,9 +3,11 @@
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
+from rest.auth.dependencies import verify_token
+from rest.db.database import async_session_maker, close_db, init_db
 from rest.engine import WhisperEngine
 from rest.middlewares import (
     AccessLogMiddleware,
@@ -36,6 +38,16 @@ async def lifespan(app: FastAPI):
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 
+    if not settings.ADMIN_TOKEN:
+        logging.getLogger(__name__).warning(
+            "ADMIN_TOKEN is not set — /admin is disabled and no tokens can be "
+            "minted, so all /v1 requests will return 401. Set ADMIN_TOKEN to "
+            "enable token management."
+        )
+
+    await init_db()
+    app.state.db_sessionmaker = async_session_maker
+
     engine = WhisperEngine(settings)
     await engine.load()
     app.state.engine = engine
@@ -43,6 +55,7 @@ async def lifespan(app: FastAPI):
     yield
 
     engine.unload()
+    await close_db()
 
 
 def create_app() -> FastAPI:
@@ -86,8 +99,8 @@ def create_app() -> FastAPI:
             expose_headers=["x-execution-time", "x-request-id"],
         )
 
-    # Routes
-    app.include_router(router)
+    # Routes — all /v1 endpoints require a valid Bearer token
+    app.include_router(router, dependencies=[Depends(verify_token)])
 
     # Health endpoint (outside /v1)
     @app.get("/health", response_model=HealthResponse)
