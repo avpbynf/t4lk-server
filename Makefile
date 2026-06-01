@@ -27,8 +27,8 @@ mypy: ## Type check with mypy
 
 # === Docker ===
 
-up: ## Start the service
-	docker compose up -d
+up: ## Start the service (rebuilds image to pick up code/dependency changes)
+	docker compose up -d --build
 
 down: ## Stop the service
 	docker compose down
