@@ -1,7 +1,7 @@
 [project]
 name = "t4lk-server"
 version = "0.1.0"
-description = "T4lk internal Speech-to-Text API server — OpenAI-compatible, GPU-accelerated"
+description = "OpenAI-compatible, GPU-accelerated Speech-to-Text API server"
 requires-python = ">=3.10,<3.14"
 dependencies = [
     "fastapi>=0.115.0",
