@@ -1,0 +1,3 @@
+# Everything is stored and checked out with LF, whatever the contributor's platform
+# or their core.autocrlf setting. A CRLF appearing in a diff is a tooling regression.
+* text=auto eol=lf
