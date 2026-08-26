@@ -2,7 +2,7 @@
 
 Runs against the same database as the server (DATABASE_URL). Inside Docker:
 ``docker compose exec stt uv run python -m rest.create_token laptop``.
-Prints the plain ``sk_…`` token once — it cannot be retrieved later.
+Prints the plain ``sk_...`` token once. It cannot be retrieved later.
 """
 
 import asyncio
@@ -25,7 +25,7 @@ async def mint_token(
         session_maker: Session factory; defaults to the app's (tests inject one).
 
     Returns:
-        The plain ``sk_…`` token string (shown once).
+        The plain ``sk_...`` token string (shown once).
     """
     maker = session_maker or async_session_maker
     if session_maker is None:

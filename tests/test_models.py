@@ -1,4 +1,4 @@
-"""Tests for rest.models — Pydantic models, constants and serialization."""
+"""Tests for rest.models: Pydantic models, constants and serialization."""
 
 import pytest
 from pydantic import ValidationError

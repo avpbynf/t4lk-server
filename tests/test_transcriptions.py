@@ -1,4 +1,4 @@
-"""Tests for transcription endpoints — POST /v1/audio/transcriptions and /health."""
+"""Tests for transcription endpoints: POST /v1/audio/transcriptions and /health."""
 
 import json
 
@@ -45,7 +45,7 @@ async def test_health_response_has_queue_size(client):
 
 
 # ---------------------------------------------------------------------------
-# POST /v1/audio/transcriptions — response_format=json (default)
+# POST /v1/audio/transcriptions, response_format=json (default)
 # ---------------------------------------------------------------------------
 
 
@@ -64,7 +64,7 @@ async def test_transcription_json_format_text_field(client):
 
 
 # ---------------------------------------------------------------------------
-# POST /v1/audio/transcriptions — response_format=text
+# POST /v1/audio/transcriptions, response_format=text
 # ---------------------------------------------------------------------------
 
 
@@ -81,7 +81,7 @@ async def test_transcription_text_format_returns_plain_text(client):
 
 
 # ---------------------------------------------------------------------------
-# POST /v1/audio/transcriptions — response_format=verbose_json
+# POST /v1/audio/transcriptions, response_format=verbose_json
 # ---------------------------------------------------------------------------
 
 
@@ -118,7 +118,7 @@ async def test_transcription_verbose_json_segment_fields(client):
 
 
 # ---------------------------------------------------------------------------
-# POST /v1/audio/transcriptions — response_format=srt
+# POST /v1/audio/transcriptions, response_format=srt
 # ---------------------------------------------------------------------------
 
 
@@ -148,7 +148,7 @@ async def test_transcription_srt_timecode_format(client):
 
 
 # ---------------------------------------------------------------------------
-# POST /v1/audio/transcriptions — response_format=vtt
+# POST /v1/audio/transcriptions, response_format=vtt
 # ---------------------------------------------------------------------------
 
 
@@ -178,7 +178,7 @@ async def test_transcription_vtt_timecode_uses_dot(client):
 
 
 # ---------------------------------------------------------------------------
-# POST /v1/audio/transcriptions — validation errors
+# POST /v1/audio/transcriptions, validation errors
 # ---------------------------------------------------------------------------
 
 

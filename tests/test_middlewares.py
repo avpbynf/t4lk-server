@@ -1,4 +1,4 @@
-"""Tests for rest.middlewares — execution time, trace, access log, exception handler."""
+"""Tests for rest.middlewares: execution time, trace, access log, exception handler."""
 
 import logging
 

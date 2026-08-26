@@ -29,7 +29,7 @@ async def lifespan(app: FastAPI):
         app: The FastAPI application instance.
 
     Yields:
-        Nothing — control returns to FastAPI during the application lifetime.
+        Nothing. Control returns to FastAPI during the application lifetime.
     """
     settings = get_settings()
 
@@ -41,7 +41,7 @@ async def lifespan(app: FastAPI):
 
     if not settings.ADMIN_TOKEN:
         logging.getLogger(__name__).warning(
-            "ADMIN_TOKEN is not set — /admin is disabled and no tokens can be "
+            "ADMIN_TOKEN is not set: /admin is disabled and no tokens can be "
             "minted, so all /v1 requests will return 401. Set ADMIN_TOKEN to "
             "enable token management."
         )
@@ -99,7 +99,7 @@ def create_app() -> FastAPI:
             expose_headers=["x-execution-time", "x-request-id"],
         )
 
-    # Routes — all /v1 endpoints require a valid Bearer token
+    # Routes: all /v1 endpoints require a valid Bearer token
     app.include_router(
         router, dependencies=[Depends(verify_token), Depends(record_usage)]
     )

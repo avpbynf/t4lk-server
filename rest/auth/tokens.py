@@ -15,7 +15,7 @@ TOKEN_BYTES = 16  # 32 hex characters
 
 
 def generate_token() -> tuple[str, str]:
-    """Generate a new token. Returns (plain "sk_…", sha256_hex_hash)."""
+    """Generate a new token. Returns (plain "sk_...", sha256_hex_hash)."""
     plain = f"{TOKEN_PREFIX}{secrets.token_hex(TOKEN_BYTES)}"
     return plain, hash_token(plain)
 
@@ -31,7 +31,7 @@ def verify_token_hash(plain: str, hashed: str) -> bool:
 
 
 async def create_token(db: AsyncSession, name: str) -> tuple[Token, str]:
-    """Create and persist a token. Returns (model, plain) — plain is shown once."""
+    """Create and persist a token. Returns (model, plain), where plain is shown once."""
     plain, hashed = generate_token()
     token = Token(key_hash=hashed, name=name)
     db.add(token)

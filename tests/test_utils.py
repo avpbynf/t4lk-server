@@ -1,4 +1,4 @@
-"""Tests for rest.utils — humanize_validation_error, generate_otel_trace_id."""
+"""Tests for rest.utils: humanize_validation_error, generate_otel_trace_id."""
 
 from rest.utils import generate_otel_trace_id, humanize_validation_error
 

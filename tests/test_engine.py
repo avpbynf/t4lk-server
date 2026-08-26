@@ -1,4 +1,4 @@
-"""Tests for rest.engine — WhisperEngine transcription and streaming."""
+"""Tests for rest.engine: WhisperEngine transcription and streaming."""
 
 import asyncio
 from unittest.mock import MagicMock
@@ -96,7 +96,7 @@ async def test_transcribe_acquires_and_releases_semaphore(settings, mock_whisper
     # Act
     await eng.transcribe(b"fake audio")
 
-    # Assert: semaphore was released — value restored
+    # Assert: semaphore was released, value restored
     assert eng._semaphore._value == initial_value
 
 

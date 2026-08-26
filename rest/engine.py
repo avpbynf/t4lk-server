@@ -1,4 +1,4 @@
-"""Whisper engine module — manages the faster-whisper model and GPU access."""
+"""Whisper engine module: manages the faster-whisper model and GPU access."""
 
 import asyncio
 import io
@@ -72,7 +72,7 @@ class WhisperEngine:
         """Load the Whisper model. Called during app startup.
 
         Loads the model in a thread pool to avoid blocking the event loop.
-        Raises an exception if loading fails — the server should not start
+        Raises an exception if loading fails, because the server should not start
         with an unloaded model.
 
         Raises:
@@ -234,7 +234,7 @@ class WhisperEngine:
         language: str | None = None,
         prompt: str | None = None,
     ):
-        """Streaming transcription — yields segments as they are produced.
+        """Streaming transcription: yields segments as they are produced.
 
         Acquires the GPU semaphore with a timeout, runs the full transcription
         in a thread pool (since faster-whisper's iterator is synchronous), then
