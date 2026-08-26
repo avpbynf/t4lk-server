@@ -1,62 +1,84 @@
-# t4lk-server
+<p align="center">
+  <img src="docs/logo.png" width="128" alt="">
+</p>
 
-OpenAI-compatible Speech-to-Text API, GPU-accelerated with [faster-whisper](https://github.com/SYSTRAN/faster-whisper).
+<h1 align="center">Talk Server</h1>
 
-Drop-in replacement for the OpenAI `/v1/audio/transcriptions` endpoint: point any
-client that already speaks that API at this server and it works, with your own GPU
-doing the inference and your audio never leaving your machine.
+<p align="center">
+  Your own GPU, answering the OpenAI transcription API.
+</p>
 
-Pairs with [t4lk-client](https://github.com/avpbynf/t4lk-client), a desktop app that
-uses this server and falls back to local transcription when it is unreachable.
+<p align="center">
+  <img src="https://img.shields.io/badge/python-3.10%2B-6366f1?style=flat-square" alt="Python 3.10+">
+  <img src="https://img.shields.io/badge/inference-faster--whisper-6366f1?style=flat-square" alt="faster-whisper">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/licence-MIT-6366f1?style=flat-square" alt="MIT"></a>
+</p>
 
-## Requirements
+---
 
-- NVIDIA GPU with CUDA (or set `DEVICE=cpu`)
-- Docker with the NVIDIA Container Toolkit, or Python 3.10+ and [uv](https://docs.astral.sh/uv/)
+This is a drop-in replacement for OpenAI's `/v1/audio/transcriptions`. Anything that
+already speaks that API points at this server instead, and the inference happens on a
+card you own, on audio that never leaves your network. The model is
+[faster-whisper](https://github.com/SYSTRAN/faster-whisper), held resident so a request
+pays for the transcription and not for the loading.
+
+Nothing is kept. The audio is transcribed and dropped, the text is returned and
+forgotten, and the only row written is one usage log per authenticated request carrying
+the token, the route, a timestamp and how long it took. History, if you want history,
+lives on the client.
+
+It pairs with [Talk-Client](https://github.com/avpbynf/Talk-Client), a Windows desktop
+app that dictates into whatever window has focus and falls back to a local engine when
+this server is unreachable. Neither needs the other to be useful.
 
 ## Quick start
+
+You need an NVIDIA GPU with CUDA, or `DEVICE=cpu` and patience, plus Docker with the
+NVIDIA Container Toolkit.
 
 ```bash
 cp .env.example .env
 ```
 
-Set `ADMIN_TOKEN` in `.env` to a random string (`make token` prints one), then:
+`ADMIN_TOKEN` is the one setting that matters at bootstrap, and `make token` prints a
+suitable random string. Leave it empty and the server starts, warns, and answers 401 to
+every `/v1` call, which is the single most confusing failure this project has.
 
 ```bash
 make up
-```
-
-Mint a token for a machine, and keep the `sk_...` it prints. It is shown once:
-
-```bash
 make token-create NAME=laptop
 ```
 
-Transcribe:
+Keep the `sk_...` that prints. Tokens are stored hashed, so it is shown once and there
+is no recovery path, only revoke and mint again.
 
 ```bash
-curl -H "Authorization: Bearer sk_..." -F file=@audio.wav http://localhost:8000/v1/audio/transcriptions
+curl -H "Authorization: Bearer sk_..." \
+     -F file=@audio.wav \
+     http://localhost:8000/v1/audio/transcriptions
 ```
+
+The first start pulls the model from HuggingFace, so it is slow rather than hung, and
+the healthcheck stays red until the model is resident.
 
 ## Endpoints
 
-| Method | Path | Auth | Description |
+| Method | Path | Auth | What it does |
 |---|---|---|---|
 | POST | `/v1/audio/transcriptions` | Bearer | Full transcription, OpenAI-compatible |
-| POST | `/v1/audio/transcriptions/stream` | Bearer | Same, streamed over SSE |
+| POST | `/v1/audio/transcriptions/stream` | Bearer | The same, streamed over SSE |
 | GET | `/health` | none | Model state, device, queue depth |
 | GET | `/admin/` | `ADMIN_TOKEN` | Token management dashboard |
-| * | `/admin/tokens[...]` | `ADMIN_TOKEN` | Token CRUD and usage stats |
+| * | `/admin/tokens[...]` | `ADMIN_TOKEN` | Token CRUD and per-token usage |
 
-Every `/v1` route requires a Bearer token. With `ADMIN_TOKEN` unset, `/admin` is
-disabled and `/v1` answers 401 to everything, so the server logs a warning at
-startup rather than silently serving nothing.
+`/health` deliberately needs no token: it is what lets a client probe reachability
+before it holds one, and what lets a monitor work without being given a secret.
 
 ## Configuration
 
-Set in `.env`.
+All of it lives in `.env`.
 
-| Variable | Default | Description |
+| Variable | Default | What it does |
 |---|---|---|
 | `WHISPER_MODEL` | `Systran/faster-whisper-large-v3` | Model to load |
 | `DEVICE` | `cuda` | `cuda` or `cpu` |
@@ -69,8 +91,11 @@ Set in `.env`.
 | `DATABASE_URL` | `sqlite+aiosqlite:///./data/tokens.db` | Token store |
 | `ADMIN_TOKEN` | (empty) | Admin credential; empty disables `/admin` |
 
-The model is pulled from HuggingFace on first start, so expect the first run to be
-slow. Tokens live in SQLite on the `token-data` volume and survive a rebuild.
+`GPU_CONCURRENCY` stays at 1 for a reason: one card serialises the work anyway, and
+raising it trades latency for an out-of-memory risk you only discover under load.
+Requests queue instead, and the queue depth is on `/health`.
+
+Tokens live in SQLite on the `token-data` volume and survive a rebuild.
 
 ## Development
 
@@ -79,17 +104,15 @@ make sync
 make dev
 ```
 
-`make test` runs pytest (80% coverage floor), `make lint` runs ruff and mypy, and
-`make help` lists the rest.
+`make test` runs pytest against an 80% coverage floor, `make lint` runs ruff and mypy,
+and `make help` lists everything else.
 
 ## Documentation
-
-Deeper guides live in [`docs/guides/`](docs/guides):
 
 | Guide | Covers |
 |---|---|
 | [endpoints.md](docs/guides/endpoints.md) | Route layout, response contracts, error codes, adding an endpoint |
-| [debug.md](docs/guides/debug.md) | Diagnosing 503s, invalid audio, CUDA OOM, unreachable server |
+| [debug.md](docs/guides/debug.md) | Diagnosing 503s, invalid audio, CUDA OOM, an unreachable server |
 | [monitoring.md](docs/guides/monitoring.md) | Health endpoint, log format, GPU monitoring |
 | [testing.md](docs/guides/testing.md) | Fixtures, coverage, naming conventions |
 
