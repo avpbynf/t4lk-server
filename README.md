@@ -82,6 +82,17 @@ make dev
 `make test` runs pytest (80% coverage floor), `make lint` runs ruff and mypy, and
 `make help` lists the rest.
 
+## Documentation
+
+Deeper guides live in [`docs/guides/`](docs/guides), in French:
+
+| Guide | Covers |
+|---|---|
+| [endpoints.md](docs/guides/endpoints.md) | Route layout, response contracts, error codes, adding an endpoint |
+| [debug.md](docs/guides/debug.md) | Diagnosing 503s, invalid audio, CUDA OOM, unreachable server |
+| [monitoring.md](docs/guides/monitoring.md) | Health endpoint, log format, GPU monitoring |
+| [testing.md](docs/guides/testing.md) | Fixtures, coverage, naming conventions |
+
 ## Licence
 
 MIT, see [LICENSE](LICENSE).
