@@ -1,46 +1,49 @@
-# Guide des endpoints FastAPI -- T4lk
+# Endpoint guide
 
-Ce guide decrit les conventions et contrats d'interface des endpoints de T4lk (t4lk-server).
+Interface conventions and active contracts for the t4lk-server endpoints.
 
 ---
 
-## Architecture des routes
+## Route layout
 
-t4lk-server protège toutes ses routes `/v1` par un token Bearer. L'architecture est directe et
-compatible avec l'API OpenAI Audio :
+Every `/v1` route is behind a Bearer token. The layout is deliberately flat and
+mirrors the OpenAI Audio API:
 
 ```
-client HTTP
+HTTP client
     |
     v
 rest/main.py        <-- application factory, health endpoint
     |
-    +-- rest/routes.py          routeur versionne (prefixe /v1)
-         +-- rest/v1/transcriptions/router.py   endpoints de transcription
+    +-- rest/routes.py          versioned router (/v1 prefix)
+    |    +-- rest/v1/transcriptions/router.py   transcription endpoints
+    +-- rest/admin/routes.py    token dashboard and CRUD
 ```
 
-**Regle de repartition** :
-- Endpoint de sante (`/health`) -> `rest/main.py`
-- Endpoints de transcription (`/v1/audio/transcriptions*`) -> `rest/v1/transcriptions/router.py`
+Where a new endpoint goes:
+
+- health (`/health`) belongs in `rest/main.py`
+- transcription (`/v1/audio/transcriptions*`) belongs in `rest/v1/transcriptions/router.py`
+- token management (`/admin/*`) belongs in `rest/admin/routes.py`
 
 ---
 
 ## Conventions
 
-### Authentification
+### Authentication
 
-Toute route `/v1` exige un token Bearer (`Authorization: Bearer sk_...`). Les tokens
-sont mintés par l'administrateur, stockés hachés, et révocables machine par machine.
-Les routes `/admin` sont protégées séparément par `ADMIN_TOKEN`. Seul `/health` reste
-ouvert, pour que les sondes répondent sans secret.
+Every `/v1` route requires a Bearer token (`Authorization: Bearer sk_...`). Tokens are
+minted by the administrator, stored hashed, and revocable per machine. The `/admin`
+routes are guarded separately by `ADMIN_TOKEN`. Only `/health` stays open, so probes
+can answer without holding a secret.
 
-`ADMIN_TOKEN` vide désactive `/admin` et verrouille `/v1` en 401 : un avertissement est
-loggé au démarrage, c'est le premier endroit où regarder quand tout répond 401.
+An empty `ADMIN_TOKEN` disables `/admin` and locks `/v1` to 401. A warning is logged at
+startup, and that is the first place to look when everything answers 401.
 
-### Upload audio
+### Audio upload
 
-Les endpoints de transcription acceptent un fichier audio via `multipart/form-data`. Le champ
-s'appelle `file` et doit etre de type `UploadFile`.
+Transcription endpoints take the audio as `multipart/form-data`. The field is named
+`file` and must be an `UploadFile`.
 
 ```python
 @router.post("/transcriptions")
@@ -48,69 +51,68 @@ async def create_transcription(file: UploadFile = File(...)):
     ...
 ```
 
-Formats audio supportes : `wav`, `mp3`, `mp4`, `m4a`, `ogg`, `flac`, `webm`.
-Taille maximale : 25 MB.
+Supported formats: `wav`, `mp3`, `mp4`, `m4a`, `ogg`, `flac`, `webm`. Maximum size 25 MB.
 
-### Format des reponses
+### Response format
 
-Le format de reponse est controle par le parametre `response_format` :
+The `response_format` parameter drives what comes back:
 
-| Valeur | Type de retour | Description |
-|--------|---------------|-------------|
-| `json` (defaut) | `application/json` | `{"text": "..."}` |
-| `verbose_json` | `application/json` | Texte + langue + duree + segments |
-| `text` | `text/plain` | Transcription brute |
-| `srt` | `text/plain` | Sous-titres SRT |
-| `vtt` | `text/plain` | Sous-titres WebVTT |
+| Value | Content type | Description |
+|---|---|---|
+| `json` (default) | `application/json` | `{"text": "..."}` |
+| `verbose_json` | `application/json` | Text, language, duration, segments |
+| `text` | `text/plain` | Raw transcription |
+| `srt` | `text/plain` | SRT subtitles |
+| `vtt` | `text/plain` | WebVTT subtitles |
 
-Les erreurs utilisent le format FastAPI standard :
+Errors use the standard FastAPI shape:
 
 ```json
-{ "detail": "description de l'erreur" }
+{ "detail": "what went wrong" }
 ```
 
-La route SSE (`/v1/audio/transcriptions/stream`) retourne un flux `text/event-stream`.
+The SSE route (`/v1/audio/transcriptions/stream`) returns a `text/event-stream`.
 
-### En-tetes de reponse
+### Response headers
 
-Chaque reponse inclut des en-tetes de tracage et de performance :
+Every response carries tracing and timing headers:
 
-| En-tete | Description |
-|---------|-------------|
-| `X-Request-Id` | Identifiant unique de la requete (hex 16 octets) |
-| `X-Execution-Time` | Duree totale de traitement en ms (ex: `1234.5ms`) |
+| Header | Description |
+|---|---|
+| `X-Request-Id` | Unique request identifier (16 hex bytes) |
+| `X-Execution-Time` | Total processing time in ms, e.g. `1234.5ms` |
 
 ---
 
-## Contrats actifs
+## Active contracts
 
 ### 1. POST /v1/audio/transcriptions
 
-| Propriete | Valeur |
-|-----------|--------|
-| Methode | `POST` |
+| Property | Value |
+|---|---|
+| Method | `POST` |
 | Path | `/v1/audio/transcriptions` |
-| Auth | Aucune |
+| Auth | Bearer token |
 | Content-Type | `multipart/form-data` |
 
-Parametres form-data :
+Form fields:
 
-| Parametre | Type | Requis | Defaut | Description |
-|-----------|------|--------|--------|-------------|
-| `file` | `UploadFile` | oui | -- | Fichier audio |
-| `model` | `str` | non | -- | Informatif seulement (le modele configure est utilise) |
-| `language` | `str` | non | `DEFAULT_LANGUAGE` | Code BCP-47 (`fr`, `en`, etc.) |
-| `response_format` | `str` | non | `json` | Format de retour (voir tableau ci-dessus) |
-| `temperature` | `float` | non | `0.0` | Temperature d'echantillonnage |
-| `prompt` | `str` | non | -- | Prompt initial pour guider la transcription |
+| Field | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `file` | `UploadFile` | yes | -- | Audio file |
+| `model` | `str` | no | -- | Informational only; the configured model is used |
+| `language` | `str` | no | `DEFAULT_LANGUAGE` | BCP-47 code (`fr`, `en`, ...) |
+| `response_format` | `str` | no | `json` | See the table above |
+| `temperature` | `float` | no | `0.0` | Sampling temperature |
+| `prompt` | `str` | no | -- | Initial prompt, to steer the transcription |
 
-Reponse `json` (defaut) :
+Default `json` response:
 
 ```json
 {"text": "Bonjour comment allez-vous"}
 ```
 
-Reponse `verbose_json` :
+`verbose_json` response:
 
 ```json
 {
@@ -129,17 +131,17 @@ Reponse `verbose_json` :
 
 ### 2. POST /v1/audio/transcriptions/stream
 
-| Propriete | Valeur |
-|-----------|--------|
-| Methode | `POST` |
+| Property | Value |
+|---|---|
+| Method | `POST` |
 | Path | `/v1/audio/transcriptions/stream` |
-| Auth | Aucune |
+| Auth | Bearer token |
 | Content-Type | `multipart/form-data` |
-| Reponse | `200` `text/event-stream` (SSE) |
+| Response | `200` `text/event-stream` (SSE) |
 
-Parametres form-data : identiques a l'endpoint precedent, sans `response_format`.
+Same form fields as the endpoint above, minus `response_format`.
 
-Format des evenements SSE :
+Event shape:
 
 ```
 event: segment
@@ -152,25 +154,25 @@ event: done
 data: {"text": "Bonjour comment allez-vous", "language": "fr", "duration": 5.1}
 ```
 
-En cas d'erreur apres debut du streaming :
+When a failure happens after the stream has started:
 
 ```
 event: error
 data: {"message": "GPU queue timeout exceeded after 120s", "type": "QueueTimeoutError"}
 ```
 
-Extension YZ non presente dans l'API standard OpenAI.
+This route is an extension; the OpenAI API has no equivalent.
 
 ---
 
 ### 3. GET /health
 
-| Propriete | Valeur |
-|-----------|--------|
-| Methode | `GET` |
+| Property | Value |
+|---|---|
+| Method | `GET` |
 | Path | `/health` |
-| Auth | Aucune |
-| Reponse | `200` JSON |
+| Auth | none |
+| Response | `200` JSON |
 
 ```json
 {
@@ -181,27 +183,41 @@ Extension YZ non presente dans l'API standard OpenAI.
 }
 ```
 
-`status` vaut `"ok"` si le modele est charge, `"degraded"` sinon.
-`queue_size` indique le nombre de requetes en attente d'un slot GPU.
+`status` is `"ok"` once the model is loaded and `"degraded"` before that. `queue_size`
+is how many requests are waiting for a GPU slot.
 
 ---
 
-## Codes d'erreur HTTP
+### 4. /admin
+
+| Property | Value |
+|---|---|
+| Path | `/admin/` and `/admin/tokens[...]` |
+| Auth | `ADMIN_TOKEN` |
+
+`/admin/` serves the HTML dashboard. Under `/admin/tokens` sit the create, list, read,
+delete and per-token usage endpoints. A minted token is shown once and stored hashed,
+so there is no recovery path, only revoke and mint again.
+
+---
+
+## HTTP error codes
 
 | Code | Exception | Cause |
-|------|-----------|-------|
-| `400` | `InvalidAudioError` | Format/taille de fichier invalide, format de reponse non supporte |
-| `422` | validation FastAPI | Parametre form-data manquant ou de mauvais type |
-| `500` | `TranscriptionError` | Echec de transcription cote modele |
-| `503` | `QueueTimeoutError` | Timeout d'attente GPU depasse (`GPU_TIMEOUT`) |
+|---|---|---|
+| `400` | `InvalidAudioError` | Bad file format or size, unsupported response format |
+| `401` | -- | Missing, malformed or revoked Bearer token |
+| `422` | FastAPI validation | Missing or mistyped form field |
+| `500` | `TranscriptionError` | The model failed to transcribe |
+| `503` | `QueueTimeoutError` | Waited longer than `GPU_TIMEOUT` for the GPU |
 
 ---
 
-## Ajouter un endpoint
+## Adding an endpoint
 
-### Endpoint de transcription
+### A transcription endpoint
 
-Ajouter dans `rest/v1/transcriptions/router.py` en suivant le pattern :
+Add it to `rest/v1/transcriptions/router.py`, following the existing pattern:
 
 ```python
 @router.get("/transcriptions/{id}")
@@ -214,19 +230,19 @@ async def get_transcription(
     return {"id": id}
 ```
 
-### Nouvel endpoint versioned
+### A new versioned endpoint
 
-Creer un nouveau sous-package dans `rest/v1/` et inclure le routeur dans `rest/routes.py` :
+Create a sub-package under `rest/v1/` and include its router from `rest/routes.py`:
 
 ```python
-from rest.v1.nouveau.router import router as nouveau_router
-router.include_router(nouveau_router)
+from rest.v1.newthing.router import router as newthing_router
+router.include_router(newthing_router)
 ```
 
-### Checklist avant merge
+### Before merging
 
-- [ ] Endpoint documente dans ce fichier (section "Contrats actifs")
-- [ ] Validation de l'entree effectuee avant l'acces au GPU
-- [ ] Reponse d'erreur testee (400, 422, 500, 503)
-- [ ] Test unitaire ou d'integration ajoute
-- [ ] Couverture globale maintenue au-dessus de 80 %
+- [ ] The endpoint is documented here, under "Active contracts"
+- [ ] Input is validated before anything touches the GPU
+- [ ] Error responses are tested (400, 401, 422, 500, 503)
+- [ ] A unit or integration test covers it
+- [ ] Overall coverage stays above 80%
