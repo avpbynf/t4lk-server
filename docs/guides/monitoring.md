@@ -1,4 +1,4 @@
-# Monitoring Guide -- T4lk
+# Monitoring guide
 
 ## Overview
 
