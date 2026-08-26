@@ -1,6 +1,6 @@
 services:
   stt:
-    container_name: t4lk-server
+    container_name: talk-server
     build: .
     restart: unless-stopped
     deploy:

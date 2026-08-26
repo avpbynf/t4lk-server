@@ -1,4 +1,4 @@
-"""Application factory for the T4lk FastAPI server."""
+"""Application factory for the Talk FastAPI server."""
 
 import logging
 from contextlib import asynccontextmanager
@@ -74,8 +74,8 @@ def create_app() -> FastAPI:
     settings = get_settings()
 
     app = FastAPI(
-        title="T4lk",
-        description="T4lk Speech-to-Text API",
+        title="Talk",
+        description="Talk Speech-to-Text API",
         version="0.1.0",
         lifespan=lifespan,
     )

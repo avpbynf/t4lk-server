@@ -1,1 +1,1 @@
-"""T4lk REST API package."""
+"""Talk REST API package."""

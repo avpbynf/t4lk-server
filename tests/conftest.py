@@ -1,4 +1,4 @@
-"""Shared pytest fixtures for the T4lk server test suite."""
+"""Shared pytest fixtures for the Talk server test suite."""
 
 from unittest.mock import MagicMock, patch
 
