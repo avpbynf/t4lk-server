@@ -38,7 +38,7 @@ dependencies. `make up` rebuilds the image, which is what picks up new deps.
 ## Things that bite
 
 - A single GPU serialises work. `GPU_CONCURRENCY` defaults to 1 and requests queue
-  behind `GPU_TIMEOUT`; raising concurrency on one card trades latency for OOM risk.
+  behind `GPU_TIMEOUT`. Raising concurrency on one card trades latency for OOM risk.
 - `ADMIN_TOKEN` unset is a valid but useless state: `/admin` is off and every `/v1`
   route answers 401. The startup warning is the only clue, so check it first when
   auth "mysteriously" fails.

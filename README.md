@@ -28,8 +28,10 @@ the token, the route, a timestamp and how long it took. History, if you want his
 lives on the client.
 
 It pairs with [Talk-Client](https://github.com/avpbynf/Talk-Client), a Windows desktop
-app that dictates into whatever window has focus and falls back to a local engine when
-this server is unreachable. Neither needs the other to be useful.
+app that dictates into whatever window has focus. That client can transcribe on its own
+machine instead, and does so by default, so this server is the answer to two different
+problems: a machine with no GPU, and several machines that would rather share one
+loaded model than each hold their own.
 
 ## Quick start
 
@@ -89,7 +91,7 @@ All of it lives in `.env`.
 | `CORS_ALLOW_ORIGINS` | `["*"]` | Allowed origins |
 | `LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR` |
 | `DATABASE_URL` | `sqlite+aiosqlite:///./data/tokens.db` | Token store |
-| `ADMIN_TOKEN` | (empty) | Admin credential; empty disables `/admin` |
+| `ADMIN_TOKEN` | (empty) | Admin credential, and empty disables `/admin` |
 
 `GPU_CONCURRENCY` stays at 1 for a reason: one card serialises the work anyway, and
 raising it trades latency for an out-of-memory risk you only discover under load.
