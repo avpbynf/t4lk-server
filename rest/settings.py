@@ -4,8 +4,6 @@ import functools
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-SERVER_VERSION = "0.2.0"
-
 
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
