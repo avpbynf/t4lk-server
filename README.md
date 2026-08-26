@@ -84,7 +84,7 @@ make dev
 
 ## Documentation
 
-Deeper guides live in [`docs/guides/`](docs/guides), in French:
+Deeper guides live in [`docs/guides/`](docs/guides):
 
 | Guide | Covers |
 |---|---|
