@@ -1,211 +1,211 @@
-# Guide de debogage -- T4lk
+# Troubleshooting guide
 
-Ce guide couvre les diagnostics et la résolution de pannes du serveur T4lk (FastAPI + CUDA),
-les cas où un client ne parvient pas à l'atteindre compris.
+Diagnosing and fixing t4lk-server (FastAPI + CUDA), including the case where a client
+cannot reach it.
 
 ---
 
-## Diagnostics rapides
+## First look
 
-Commandes a executer en premier pour evaluer l'etat du systeme :
+Run these before anything else:
 
 ```bash
-# Verifier que les conteneurs sont en cours d'execution
-docker ps
-
-# Afficher les logs en temps reel (serveur)
-make logs
-
-# Verifier que l'API repond
-make health
+docker ps      # are the containers up
+make logs      # follow the server logs
+make health    # does the API answer
 ```
 
-La cible `make health` appelle `GET /health`. Une reponse `200 OK` avec `{"status": "ok", "model_loaded": true}` indique que le serveur est operationnel. Toute autre reponse ou un timeout signale un probleme.
+`make health` calls `GET /health`. A `200 OK` carrying
+`{"status": "ok", "model_loaded": true}` means the server is serving. Anything else, or
+a timeout, means it is not.
 
 ---
 
-## Diagnostics FastAPI
+## FastAPI diagnostics
 
-### Interface Swagger
+### Swagger
 
-L'interface Swagger est disponible a l'adresse suivante en developpement :
+In development the interactive docs are at:
 
 ```
 http://localhost:8000/docs
 ```
 
-Elle permet de tester tous les endpoints directement depuis le navigateur sans client supplementaire.
+Every endpoint can be exercised there without another client. ReDoc is at
+`http://localhost:8000/redoc`.
 
-Interface alternative ReDoc :
+### Request tracing
 
-```
-http://localhost:8000/redoc
-```
-
-### Tracage des requetes
-
-Les logs des requetes HTTP sont geres par `AccessLogMiddleware` dans `rest/middlewares.py`. Chaque requete produit une ligne de log avec methode, path, statut, duree et metadonnees STT :
+`AccessLogMiddleware` in `rest/middlewares.py` logs one line per request, with method,
+path, status, duration and the transcription metadata:
 
 ```
 2026-03-16 10:00:00 [INFO] rest.middlewares: POST /v1/audio/transcriptions 200 1234.5ms
 [trace_id=abc123def456 audio=5000ms model=large-v3 lang=fr queue=0ms]
 ```
 
-Chaque reponse inclut `X-Request-Id` pour correler client et logs serveur.
+Every response also carries `X-Request-Id`, which is what correlates a client report
+with a server log line.
 
-Pour reproduire une requete en dehors du client :
+To reproduce a request outside the client (every `/v1` call needs a token):
 
 ```bash
-# Test d'une transcription avec curl
+# Plain transcription
 curl -X POST http://localhost:8000/v1/audio/transcriptions \
-  -F "file=@/chemin/vers/audio.wav" \
+  -H "Authorization: Bearer sk_..." \
+  -F "file=@/path/to/audio.wav" \
   -F "language=fr"
 
-# Test verbose_json (avec segments et duree)
+# verbose_json, with segments and duration
 curl -X POST http://localhost:8000/v1/audio/transcriptions \
-  -F "file=@/chemin/vers/audio.wav" \
+  -H "Authorization: Bearer sk_..." \
+  -F "file=@/path/to/audio.wav" \
   -F "response_format=verbose_json"
 
-# Test de la route SSE (transcription en flux)
+# The SSE route
 curl -X POST http://localhost:8000/v1/audio/transcriptions/stream \
+  -H "Authorization: Bearer sk_..." \
   -H "Accept: text/event-stream" \
-  -F "file=@/chemin/vers/audio.wav"
+  -F "file=@/path/to/audio.wav"
 ```
 
-### Logs Uvicorn
+### Uvicorn logs
 
 ```bash
-# Logs live du conteneur serveur
 make logs
-
-# Ou directement via Docker
 docker logs t4lk-server --follow --tail 100
 ```
 
 ---
 
-## Pannes courantes
+## Common failures
 
-### 503 -- Modele Whisper non charge ou timeout GPU
+### 401 -- every call is rejected
 
-**Symptome** : `POST /v1/audio/transcriptions` retourne `503 Service Unavailable`.
+**Symptom**: every `/v1` request answers `401`, including ones that worked before.
 
-**Causes possibles** :
+**Likely causes**:
 
-1. Le serveur n'a pas encore termine de charger le modele au demarrage (le chargement de faster-whisper peut prendre 30 a 60 secondes).
-2. Le modele specifie dans `WHISPER_MODEL` n'existe pas ou n'est pas accessible.
-3. Erreur CUDA lors de l'initialisation (voir section CUDA out of memory).
-4. Timeout GPU : `GPU_TIMEOUT` secondes d'attente depassees (requetes concurrentes trop nombreuses).
+1. `ADMIN_TOKEN` is empty. That disables `/admin` and locks `/v1` to 401 for everything.
+   A warning is logged at startup; this is the first thing to check.
+2. The token was revoked, or the client is sending a stale one.
+3. The header is malformed. It must be `Authorization: Bearer sk_...`.
 
-**Verifications** :
+**Checks**:
 
 ```bash
-# Attendre et reessayer make health jusqu'a obtenir {"status": "ok", "model_loaded": true}
-make health
+make logs | grep -i "admin_token\|auth\|401"
+make token-create NAME=debug     # mint a fresh one and retry
+```
 
-# Verifier les logs au demarrage
+---
+
+### 503 -- model not loaded, or GPU timeout
+
+**Symptom**: `POST /v1/audio/transcriptions` answers `503 Service Unavailable`.
+
+**Likely causes**:
+
+1. The model is still loading. faster-whisper takes 30 to 60 seconds at startup, and
+   longer on the very first run while the weights download.
+2. `WHISPER_MODEL` names a model that does not exist or cannot be reached.
+3. CUDA failed to initialise (see the out-of-memory section below).
+4. The request waited longer than `GPU_TIMEOUT` for a GPU slot, because too many
+   requests are in flight.
+
+**Checks**:
+
+```bash
+make health                                        # retry until model_loaded is true
 make logs | grep -i "model\|whisper\|load\|timeout"
-
-# Verifier la variable WHISPER_MODEL dans .env
 grep WHISPER_MODEL .env
 ```
 
 ---
 
-### 400 -- Fichier audio invalide
+### 400 -- invalid audio file
 
-**Symptome** : `POST /v1/audio/transcriptions` retourne `400 Bad Request`.
+**Symptom**: `POST /v1/audio/transcriptions` answers `400 Bad Request`.
 
-**Causes possibles** :
+**Likely causes**:
 
-1. Extension du fichier non supportee (seuls `wav`, `mp3`, `mp4`, `m4a`, `ogg`, `flac`, `webm` sont acceptes).
-2. Taille du fichier superieure a 25 MB.
-3. `response_format` non reconnu.
+1. Unsupported extension. Only `wav`, `mp3`, `mp4`, `m4a`, `ogg`, `flac` and `webm` are
+   accepted.
+2. The file is larger than 25 MB.
+3. `response_format` is not one of the supported values.
 
-**Verifications** :
-
-```bash
-# Tester avec un fichier WAV simple
-curl -X POST http://localhost:8000/v1/audio/transcriptions \
-  -F "file=@test.wav"
-
-# Lire le message d'erreur dans le champ "detail"
-```
+The `detail` field of the response says which one it was.
 
 ---
 
 ### CUDA out of memory
 
-**Symptome** : Erreur `torch.cuda.OutOfMemoryError` ou `CUDA out of memory` dans les logs, suivie d'un `503` ou d'un crash du processus.
+**Symptom**: `CUDA out of memory` in the logs, followed by a `503` or a dead process.
 
-**Causes possibles** :
+**Likely causes**:
 
-1. Un autre processus occupe la memoire GPU (autre instance du serveur, autre modele charge).
-2. Le modele selectionne est trop grand pour la VRAM disponible.
-3. Un batch de transcription concurrent depasse la capacite memoire.
+1. Another process holds the GPU memory, often a second instance of the server.
+2. The chosen model does not fit the available VRAM.
+3. Concurrent transcriptions together exceed it.
 
-**Verifications** :
+**Checks**:
 
 ```bash
-# Etat de la GPU 4060
-nvidia-smi
-
-# Identifier les processus utilisant la GPU
-nvidia-smi pmon -s m
-
-# Verifier les logs du serveur
+nvidia-smi                              # overall GPU state
+nvidia-smi pmon -s m                    # which processes hold memory
 make logs | grep -i "cuda\|memory\|oom"
 ```
 
-**Resolutions** :
+**Fixes**:
 
-- Reduire la taille du modele (`WHISPER_MODEL=medium` au lieu de `large-v3`) dans `.env` puis `make restart`.
-- Liberer la memoire GPU en arretant les autres processus CUDA.
-- Si le probleme est lie aux requetes concurrentes, limiter la concurrence dans la configuration Uvicorn (`--workers 1`).
+- Use a smaller model (`WHISPER_MODEL=medium` rather than `large-v3`) in `.env`, then
+  `make restart`.
+- Stop the other CUDA processes.
+- Keep `GPU_CONCURRENCY` at 1. Raising it on a single card trades latency for OOM risk.
 
 ---
 
-### Serveur inaccessible depuis le client Tauri
+### The client cannot reach the server
 
-**Symptome** : Le client affiche une erreur de connexion ou timeout, alors que le serveur repond correctement via curl.
+**Symptom**: the client reports a connection error or a timeout, while curl against the
+same server works.
 
-**Causes possibles** :
+**Likely causes**:
 
-1. L'URL du serveur configuree dans le client est incorrecte (mauvais port, mauvais host).
-2. Le serveur ecoute sur `127.0.0.1` au lieu de `0.0.0.0`, inaccessible depuis un autre processus ou machine.
-3. Regle de pare-feu ou politique reseau bloquant le port 8000.
-4. Erreur CORS -- le client Tauri est considere comme une origine distincte.
+1. The server URL configured in the client is wrong: wrong host, wrong port, or `http`
+   where the server expects `https`.
+2. Uvicorn is bound to `127.0.0.1` rather than `0.0.0.0`, so nothing outside the
+   container or the machine can reach it.
+3. A firewall or network policy blocks the port.
+4. CORS. A Tauri client is its own origin.
 
-**Verifications** :
+**Checks**:
 
 ```bash
-# Depuis la machine hote ou tourne le client
-curl http://localhost:8000/health
-
-# Verifier sur quelle adresse Uvicorn ecoute
-make logs | grep "Uvicorn running on"
-
-# Verifier la configuration reseau Docker
+curl http://localhost:8000/health          # from the machine running the client
+make logs | grep "Uvicorn running on"      # which address it bound to
 docker inspect t4lk-server | grep -A 10 '"Ports"'
 ```
 
-**Configuration CORS** : verifier la variable `CORS_ALLOW_ORIGINS` dans `.env`. Par defaut `*` autorise toutes les origines. Pour restreindre, lister les origines separees par virgule :
+**CORS**: `CORS_ALLOW_ORIGINS` in `.env` defaults to `*`. To narrow it, list the origins
+separated by commas:
 
 ```env
 CORS_ALLOW_ORIGINS=tauri://localhost,http://localhost,https://localhost
 ```
 
-La configuration est chargee dans `rest/settings.py` et appliquee dans `rest/main.py`.
+It is read in `rest/settings.py` and applied in `rest/main.py`.
 
 ---
 
-## Reference des cibles Makefile de diagnostic
+## Makefile targets used while debugging
 
-| Cible | Description |
-|-------|-------------|
-| `make health` | Appelle `GET /health`, verifie que l'API repond |
-| `make logs` | Affiche les logs en temps reel |
-| `make gpu` | Affiche l'etat de la GPU via nvidia-smi |
-| `make restart` | Redemarre le serveur sans reconstruire l'image |
-| `make down` | Arrete tous les services Docker |
-| `make up` | Demarre tous les services Docker |
+| Target | Description |
+|---|---|
+| `make health` | Calls `GET /health` |
+| `make logs` | Follows the logs |
+| `make gpu` | GPU state via nvidia-smi |
+| `make restart` | Restarts the server without rebuilding the image |
+| `make down` | Stops the Docker services |
+| `make up` | Starts them, rebuilding the image |
+| `make token-create` | Mints an API token: `make token-create NAME=<machine>` |
