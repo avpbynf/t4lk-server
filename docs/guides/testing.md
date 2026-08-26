@@ -1,110 +1,68 @@
 # Testing guide
 
-## Overview
+What the suite gives you before you write a test: the fixtures that already exist, and
+what they stand in for.
 
-This guide covers pytest conventions, fixture patterns, and coverage
-configuration for the T4lk server (t4lk-server).
+---
 
-## Running Tests
+## Running
 
 ```bash
-make test          # run all tests with coverage (80% minimum)
+make test
 ```
 
-Coverage minimum threshold: **80%**.
+That is `pytest --cov=rest --cov-report=term-missing --cov-fail-under=80`, so the
+coverage floor lives in the `Makefile` rather than in `pyproject.toml`, which only sets
+`testpaths` and `asyncio_mode = "auto"`. Auto mode is why no test carries an
+`@pytest.mark.asyncio`: forget that, and an async test written elsewhere silently
+passes without ever being awaited.
 
-## conftest.py Conventions
+`tests/` mirrors `rest/`, one `test_<module>.py` per module.
 
-The `conftest.py` file at the package root defines shared fixtures. Scope rules:
+## The fixtures
 
-- `scope="session"` -- expensive resources (model loading, GPU init)
-- `scope="function"` (default) -- state-sensitive resources (uploaded files, mock engine)
+They chain, so asking for `client` gets you the whole stack already assembled. All of
+them are in `tests/conftest.py`.
+
+| Fixture | What it is |
+|---|---|
+| `mock_whisper_model` | A `WhisperModel` that always returns the same two French segments |
+| `settings` | `Settings` forced to `DEVICE="cpu"`, so no test needs a GPU |
+| `engine` | A `WhisperEngine` with that mock model already loaded |
+| `db_session_maker` | A real in-memory SQLite, tables created, one shared connection |
+| `auth_token` | A token genuinely minted through `create_token()`, returned in plain |
+| `app_factory` | Builds the app with the mock engine, the test database and an `ADMIN_TOKEN` |
+| `client` | An `AsyncClient` sending a valid Bearer token |
+| `unauth_client` | The same with no `Authorization` header, for the 401 paths |
+
+Two of those choices are worth knowing about.
+
+**The database is real, not mocked.** It is SQLite in memory behind a `StaticPool`, so
+every session in a test shares one connection and sees the same rows. Mocking it would
+have meant asserting that the mock behaves like the mock, and the token code is exactly
+where that would have hidden a bug.
+
+**The model is the only thing faked.** `app_factory` patches
+`rest.engine.WhisperModel` while building the app and then substitutes the prepared
+engine, so the routing, the middleware, the auth dependency and the database are all
+the real ones. What a test asserts about a response is what a client would receive.
 
 ```python
-# conftest.py
-import pytest
-from httpx import ASGITransport, AsyncClient
-from rest.main import create_app
-
-@pytest.fixture
-async def client():
-    app = create_app()
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as c:
-        yield c
-```
-
-## Fixture Patterns
-
-### WhisperEngine mock fixture
-
-```python
-@pytest.fixture
-def mock_engine(mocker):
-    engine = mocker.AsyncMock()
-    engine.transcribe.return_value = TranscriptionResult(
-        text="test transcription",
-        language="fr",
-        duration=1.0,
-        segments=[],
-    )
-    return engine
-```
-
-### Audio file fixture
-
-```python
-@pytest.fixture
-def audio_file(tmp_path):
-    path = tmp_path / "test.wav"
-    # Generate minimal valid WAV
-    path.write_bytes(b"RIFF" + b"\x00" * 40)
-    return path
-```
-
-## Coverage Configuration
-
-Coverage is configured in `pyproject.toml`:
-
-```toml
-[tool.pytest.ini_options]
-asyncio_mode = "auto"
-testpaths = ["tests"]
-
-[tool.coverage.run]
-source = ["rest"]
-
-[tool.coverage.report]
-fail_under = 80
-show_missing = true
-```
-
-## Debugging Test Failures
-
-1. Run with `-v` for verbose output: `pytest -v tests/`
-2. Run a single test: `pytest tests/test_engine.py::test_transcribe -v`
-3. Drop into debugger on failure: `pytest --pdb tests/`
-4. Show locals on failure: `pytest -l tests/`
-5. Check for async issues: ensure `asyncio_mode = "auto"` in pyproject.toml
-
-## Test Naming Conventions
-
-- Files: `test_<module_name>.py`
-- Functions: `test_<what_is_tested>_<condition>_<expected_outcome>`
-- Example: `test_create_transcription_invalid_format_returns_400`
-
-## AAA Pattern
-
-All test functions follow Arrange / Act / Assert:
-
-```python
-async def test_health_returns_ok(client):
-    # Arrange -- nothing needed
-
-    # Act
+async def test_health_reports_the_device(client):
     response = await client.get("/health")
 
-    # Assert
     assert response.status_code == 200
-    assert response.json()["status"] == "ok"
+    assert response.json()["device"] == "cpu"
 ```
+
+## When a test fails
+
+```bash
+pytest -v tests/                                # which test, not just how many
+pytest tests/test_engine.py::test_transcribe -v # one test, alone
+pytest -l --pdb tests/                          # locals, then a debugger on the failure
+```
+
+An async test that passes suspiciously fast is the failure to suspect first: it means
+`asyncio_mode` did not apply and the coroutine was never awaited, so nothing in it ran
+and nothing in it could fail.
