@@ -1,4 +1,4 @@
-# t4lk-server
+# Talk-Server
 
 FastAPI Speech-to-Text server, OpenAI-compatible, faster-whisper on CUDA.
 See [README.md](README.md) for endpoints, configuration and quick start.

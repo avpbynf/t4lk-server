@@ -1,6 +1,6 @@
 # Endpoint guide
 
-Interface conventions and active contracts for the t4lk-server endpoints.
+Interface conventions and active contracts for the Talk-Server endpoints.
 
 ---
 
@@ -86,7 +86,7 @@ Every response carries tracing and timing headers:
 
 ## Active contracts
 
-### 1. POST /v1/audio/transcriptions
+### POST /v1/audio/transcriptions
 
 | Property | Value |
 |---|---|
@@ -129,7 +129,7 @@ Default `json` response:
 
 ---
 
-### 2. POST /v1/audio/transcriptions/stream
+### POST /v1/audio/transcriptions/stream
 
 | Property | Value |
 |---|---|
@@ -165,7 +165,7 @@ This route is an extension; the OpenAI API has no equivalent.
 
 ---
 
-### 3. GET /health
+### GET /health
 
 | Property | Value |
 |---|---|
@@ -188,7 +188,7 @@ is how many requests are waiting for a GPU slot.
 
 ---
 
-### 4. /admin
+### /admin
 
 | Property | Value |
 |---|---|

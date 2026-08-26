@@ -1,6 +1,6 @@
 # Troubleshooting guide
 
-Diagnosing and fixing t4lk-server (FastAPI + CUDA), including the case where a client
+Diagnosing and fixing Talk-Server (FastAPI + CUDA), including the case where a client
 cannot reach it.
 
 ---
@@ -73,7 +73,7 @@ curl -X POST http://localhost:8000/v1/audio/transcriptions/stream \
 
 ```bash
 make logs
-docker logs t4lk-server --follow --tail 100
+docker logs talk-server --follow --tail 100
 ```
 
 ---
@@ -184,7 +184,7 @@ same server works.
 ```bash
 curl http://localhost:8000/health          # from the machine running the client
 make logs | grep "Uvicorn running on"      # which address it bound to
-docker inspect t4lk-server | grep -A 10 '"Ports"'
+docker inspect talk-server | grep -A 10 '"Ports"'
 ```
 
 **CORS**: `CORS_ALLOW_ORIGINS` in `.env` defaults to `*`. To narrow it, list the origins
