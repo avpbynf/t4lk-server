@@ -1,4 +1,4 @@
-# Testing Guide -- T4lk
+# Testing guide
 
 ## Overview
 
